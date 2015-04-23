@@ -2,6 +2,8 @@
 
 option(ENABLE_MULTIARCH "Enable support for multi-arch distros (lib64)" OFF)
 
+include(CMakeParseArguments)
+
 IF(NOT DEFINED LIB_SUFFIX)
   message(STATUS "Multiarch option set to ${ENABLE_MULTIARCH}")
   IF(ENABLE_MULTIARCH)
