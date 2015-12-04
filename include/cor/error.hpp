@@ -201,6 +201,8 @@ public:
     Backtrace<30> trace;
 };
 
+extern template class Backtrace<30>;
+
 class CError : public Error
 {
 public:

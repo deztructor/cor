@@ -16,6 +16,8 @@ bool is_address_valid(void *p)
     return res;
 }
 
+template class Backtrace<30>;
+
 Backtrace_::symbols_type
 Backtrace_::get_symbols(void *const *frames, size_t count)
 {
