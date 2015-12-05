@@ -180,7 +180,7 @@ struct PrintableRecord : public RecordCRef<TupleTraitsT>
 
 template <typename TupleTraitsT, typename TupleTraitsT::id_type Id>
 typename TupleTraitsT::template Index<Id>::cref
-value(PrintableRecord<TupleTraitsT> const &v)
+cref(PrintableRecord<TupleTraitsT> const &v)
 {
     return get<TupleTraitsT, Id>(v.data_);
 }
@@ -212,7 +212,7 @@ struct RecordPrintablePair
         static constexpr auto idx = TupleTraitsT::last - N;
         static constexpr auto id = TupleTraitsT::template Enum<idx>::value;
         d << name<TupleTraitsT, id>(v) << "="
-          << value<TupleTraitsT, id>(v) << ", ";
+          << cref<TupleTraitsT, id>(v) << ", ";
         RecordPrintablePair<N - 1>::out(d, v);
     }
 };
@@ -224,7 +224,7 @@ struct RecordPrintablePair<0>
     static void out(StreamT &d, PrintableRecord<TupleTraitsT> const & v)
     {
         static constexpr auto id = TupleTraitsT::template Enum<TupleTraitsT::last>::value;
-        d << name<TupleTraitsT, id>(v) << "=" << value<TupleTraitsT, id>(v);
+        d << name<TupleTraitsT, id>(v) << "=" << cref<TupleTraitsT, id>(v);
     }
 };
 
