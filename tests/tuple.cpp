@@ -47,6 +47,36 @@ void object::test<tid_access>()
     TestRecord::get<Field::B>(t) = "C&D";
     ensure_eq("tuple 0.3", std::get<0>(t), 2);
     ensure_eq("tuple 1.3", std::get<1>(t), "C&D");
+
+    auto ref = TestRecord::reference(t);
+    ensure_eq("ref A", ref.get<Field::A>(), std::get<0>(t));
+    ensure_eq("ref B", ref.get<Field::B>(), std::get<1>(t));
+    ref.get<Field::A>() = 333;
+    ref.get<Field::B>() = "E D";
+    ensure_eq("reference() should change A", std::get<0>(t), 333);
+    ensure_eq("reference() should change B", std::get<1>(t), "E D");
+
+    auto cref = TestRecord::const_reference(t);
+    ensure_eq("ref A", cref.get<Field::A>(), std::get<0>(t));
+    ensure_eq("ref B", cref.get<Field::B>(), std::get<1>(t));
+
+    auto t2 = std::make_tuple(127, std::string("b a"));
+    auto wrapped = TestRecord::wrap(t2);
+    ensure_eq("wrapped A", wrapped.get<Field::A>(), 127);
+    ensure_eq("wrapped B", wrapped.get<Field::B>(), "b a");
+    wrapped.get<Field::A>() = 444;
+    ensure_eq("wrapped shouldn't change src A", std::get<0>(t2), 127);
+    ensure_eq("wrapped A should be changed", wrapped.get<Field::A>(), 444);
+    ensure_eq("wrapped B should be the same", wrapped.get<Field::B>(), "b a");
+
+    wrapped.get<Field::B>() = "c d";
+    ensure_eq("wrapped B should be changed", wrapped.get<Field::B>(), "c d");
+    ensure_eq("wrapped shouldn't change src B", std::get<1>(t2), "b a");
+
+    auto t3 = wrapped.release();
+    ensure_eq("released A", std::get<0>(t3), 444);
+    ensure_eq("released B", std::get<1>(t3), "c d");
+    ensure_eq("released B is moved", wrapped.get<Field::B>(), std::string{});
 }
 
 template<> template<>

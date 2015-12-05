@@ -7,6 +7,80 @@
 namespace cor
 {
 
+
+template <typename Traits>
+struct TupleRef
+{
+    TupleRef(typename Traits::ref &data) : data_(data) {}
+    TupleRef(TupleRef const &) = delete;
+    TupleRef(TupleRef && from) : data_(from.data_) {}
+
+    template <typename Traits::id_type Id>
+    void set(typename Traits::cref v)
+    {
+        get<Id>(data_) = v;
+    }
+
+    template <typename Traits::id_type Id>
+    typename Traits::template Index<Id>::ref get() {
+        return Traits::template get<Id>(data_);
+    }
+
+    template <typename Traits::id_type Id>
+    typename Traits::template Index<Id>::cref get() const {
+        return Traits::template get<Id>(data_);
+    }
+
+private:
+    typename Traits::ref & data_;
+};
+
+template <typename Traits>
+struct TupleCRef
+{
+    TupleCRef(typename Traits::cref &data) : data_(data) {}
+    TupleCRef(TupleCRef const &) = delete;
+    TupleCRef(TupleCRef && from) : data_(from.data_) {}
+
+    template <typename Traits::id_type Id>
+    typename Traits::template Index<Id>::cref get() {
+        return Traits::template get<Id>(data_);
+    }
+
+private:
+    typename Traits::cref & data_;
+};
+
+template <typename Traits>
+struct Tuple
+{
+    Tuple(typename Traits::value_type data) : data_(std::move(data)) {}
+
+    template <typename Traits::id_type Id>
+    void set(typename Traits::cref v)
+    {
+        get<Id>(data_) = v;
+    }
+
+    template <typename Traits::id_type Id>
+    typename Traits::template Index<Id>::ref get() {
+        return Traits::template get<Id>(data_);
+    }
+
+    template <typename Traits::id_type Id>
+    typename Traits::template Index<Id>::cref get() const {
+        return Traits::template get<Id>(data_);
+    }
+
+    typename Traits::value_type release()
+    {
+        return std::move(data_);
+    }
+
+private:
+    typename Traits::value_type data_;
+};
+
 template <typename I, typename V, typename InfoT>
 struct TupleTraits
 {
@@ -46,12 +120,31 @@ struct TupleTraits
     static typename Index<Id>::ref get(ref from) {
         return std::get<Index<Id>::value>(from);
     }
-    
+
     template <id_type Id>
     static typename Index<Id>::cref get(cref from) {
         return std::get<Index<Id>::value>(from);
     }
 
+    static TupleRef<TupleTraits<I, V, InfoT> > reference(ref from)
+    {
+        return TupleRef<TupleTraits<I, V, InfoT> >(from);
+    }
+
+    static TupleCRef<TupleTraits<I, V, InfoT> > const_reference(cref from)
+    {
+        return TupleCRef<TupleTraits<I, V, InfoT> >(from);
+    }
+
+    static TupleCRef<TupleTraits<I, V, InfoT> > reference(cref from)
+    {
+        return TupleCRef<TupleTraits<I, V, InfoT> >(from);
+    }
+
+    static Tuple<TupleTraits<I, V, InfoT> > wrap(value_type from)
+    {
+        return Tuple<TupleTraits<I, V, InfoT> >(std::move(from));
+    }
 };
 
 template <typename TupleTraitsT, typename TupleTraitsT::id_type Id>
