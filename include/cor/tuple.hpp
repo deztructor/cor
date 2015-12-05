@@ -7,13 +7,12 @@
 namespace cor
 {
 
-
 template <typename Traits>
 struct TupleRef
 {
+    typedef Traits traits_type;
+
     TupleRef(typename Traits::ref &data) : data_(data) {}
-    TupleRef(TupleRef const &) = delete;
-    TupleRef(TupleRef && from) : data_(from.data_) {}
 
     template <typename Traits::id_type Id>
     void set(typename Traits::cref v)
@@ -31,6 +30,16 @@ struct TupleRef
         return Traits::template get<Id>(data_);
     }
 
+    typename Traits::ref ref()
+    {
+        return data_;
+    }
+
+    typename Traits::cref ref() const
+    {
+        return data_;
+    }
+
 private:
     typename Traits::ref & data_;
 };
@@ -38,22 +47,30 @@ private:
 template <typename Traits>
 struct TupleCRef
 {
+    typedef Traits traits_type;
+
     TupleCRef(typename Traits::cref &data) : data_(data) {}
-    TupleCRef(TupleCRef const &) = delete;
-    TupleCRef(TupleCRef && from) : data_(from.data_) {}
 
     template <typename Traits::id_type Id>
-    typename Traits::template Index<Id>::cref get() {
+    typename Traits::template Index<Id>::cref get() const {
         return Traits::template get<Id>(data_);
     }
 
-private:
+    typename Traits::cref ref() const
+    {
+        return data_;
+    }
+
+protected:
     typename Traits::cref & data_;
 };
+
 
 template <typename Traits>
 struct Tuple
 {
+    typedef Traits traits_type;
+
     Tuple(typename Traits::value_type data) : data_(std::move(data)) {}
 
     template <typename Traits::id_type Id>
@@ -77,18 +94,23 @@ struct Tuple
         return std::move(data_);
     }
 
+    typename Traits::cref ref() const
+    {
+        return data_;
+    }
+
 private:
     typename Traits::value_type data_;
 };
 
-template <typename I, typename V, typename InfoT>
+template <typename I, typename V, typename ImplT>
 struct TupleTraits
 {
     typedef I id_type;
     typedef V value_type;
     typedef V & ref;
     typedef V const & cref;
-    typedef InfoT info_type;
+    typedef ImplT impl_type;
 
     static constexpr size_t last = cor::enum_index(id_type::Last_);
     static constexpr size_t size = last + 1;
@@ -126,26 +148,38 @@ struct TupleTraits
         return std::get<Index<Id>::value>(from);
     }
 
-    static TupleRef<TupleTraits<I, V, InfoT> > reference(ref from)
+    static TupleRef<ImplT> reference(ref from)
     {
-        return TupleRef<TupleTraits<I, V, InfoT> >(from);
+        return TupleRef<ImplT>(from);
     }
 
-    static TupleCRef<TupleTraits<I, V, InfoT> > const_reference(cref from)
+    static TupleCRef<ImplT> const_reference(cref from)
     {
-        return TupleCRef<TupleTraits<I, V, InfoT> >(from);
+        return TupleCRef<ImplT>(from);
     }
 
-    static TupleCRef<TupleTraits<I, V, InfoT> > reference(cref from)
+    static TupleCRef<ImplT> reference(cref from)
     {
-        return TupleCRef<TupleTraits<I, V, InfoT> >(from);
+        return TupleCRef<ImplT>(from);
     }
 
-    static Tuple<TupleTraits<I, V, InfoT> > wrap(value_type from)
+    static Tuple<ImplT> wrap(value_type from)
     {
-        return Tuple<TupleTraits<I, V, InfoT> >(std::move(from));
+        return Tuple<ImplT>(std::move(from));
     }
 };
+
+template <typename T>
+struct is_tuple_wrapper_ : std::false_type {};
+template <typename TraitsT>
+struct is_tuple_wrapper_<TupleRef<TraitsT> > : std::true_type {};
+template <typename TraitsT>
+struct is_tuple_wrapper_<TupleCRef<TraitsT> > : std::true_type {};
+template <typename TraitsT>
+struct is_tuple_wrapper_<Tuple<TraitsT> > : std::true_type {};
+template<typename T>
+struct is_tuple_wrapper : is_tuple_wrapper_<typename std::remove_cv<T>::type> {};
+
 
 template <typename TupleTraitsT, typename TupleTraitsT::id_type Id>
 typename TupleTraitsT::template Index<Id>::cref
@@ -162,39 +196,44 @@ get(typename TupleTraitsT::ref v)
 }
 
 template <typename TupleTraitsT>
-struct RecordCRef
-{
-    typedef typename TupleTraitsT::cref cref;
-    RecordCRef(cref data) : data_(data) {}
-    RecordCRef(RecordCRef const &) = delete;
-    RecordCRef(RecordCRef &&v) : data_(v.data_) {}
-    cref data_;
-};
-
-template <typename TupleTraitsT>
-struct PrintableRecord : public RecordCRef<TupleTraitsT>
+struct PrintableRecord : public TupleCRef<TupleTraitsT>
 {
     PrintableRecord(typename TupleTraitsT::cref data)
-        : RecordCRef<TupleTraitsT>(data) {}
+        : TupleCRef<TupleTraitsT>(data) {}
+
+    template <class Wrapper
+              , typename = typename std::enable_if<
+                    is_tuple_wrapper<Wrapper>::value>::type >
+    PrintableRecord(Wrapper const &data)
+        : TupleCRef<TupleTraitsT>(data.ref()) {}
 };
 
 template <typename TupleTraitsT, typename TupleTraitsT::id_type Id>
 typename TupleTraitsT::template Index<Id>::cref
 cref(PrintableRecord<TupleTraitsT> const &v)
 {
-    return get<TupleTraitsT, Id>(v.data_);
+    return v.get<Id>();
 }
 
 template <typename TupleTraitsT, typename TupleTraitsT::id_type Id>
 constexpr char const *name()
 {
-    return TupleTraitsT::info_type::template name<Id>();
+    return TupleTraitsT::impl_type::template name<Id>();
 }
 
 template <typename TupleTraitsT, typename TupleTraitsT::id_type Id>
 constexpr char const *name(PrintableRecord<TupleTraitsT> const &)
 {
     return name<TupleTraitsT, Id>();
+}
+
+template <typename Wrapper>
+typename std::enable_if<
+    is_tuple_wrapper<Wrapper>::value
+    , PrintableRecord<typename Wrapper::traits_type> >::type
+printable(Wrapper const &v)
+{
+    return PrintableRecord<typename Wrapper::traits_type>(v);
 }
 
 template <typename TupleTraitsT>

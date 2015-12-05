@@ -37,6 +37,8 @@ void object::test<tid_access>()
     ensure_eq("tuple nr id 1", TestRecord::get<Field::B>(t), std::get<1>(t));
     ensure_eq("tuple nr id 0", cor::get<TestRecord, Field::A>(t), std::get<0>(t));
     ensure_eq("tuple nr id 1", cor::get<TestRecord, Field::B>(t), std::get<1>(t));
+    cor::PrintableRecord<TestRecord> rec1(t);
+
     TestRecord::set<Field::A>(t, 11);
     ensure_eq("tuple 0.1", std::get<0>(t), 11);
     ensure_eq("tuple 1.1", std::get<1>(t), "A&B");
@@ -55,10 +57,12 @@ void object::test<tid_access>()
     ref.get<Field::B>() = "E D";
     ensure_eq("reference() should change A", std::get<0>(t), 333);
     ensure_eq("reference() should change B", std::get<1>(t), "E D");
+    cor::PrintableRecord<TestRecord> rec_ref(ref);
 
     auto cref = TestRecord::const_reference(t);
     ensure_eq("ref A", cref.get<Field::A>(), std::get<0>(t));
     ensure_eq("ref B", cref.get<Field::B>(), std::get<1>(t));
+    cor::PrintableRecord<TestRecord> rec_cref(cref);
 
     auto t2 = std::make_tuple(127, std::string("b a"));
     auto wrapped = TestRecord::wrap(t2);
@@ -68,6 +72,7 @@ void object::test<tid_access>()
     ensure_eq("wrapped shouldn't change src A", std::get<0>(t2), 127);
     ensure_eq("wrapped A should be changed", wrapped.get<Field::A>(), 444);
     ensure_eq("wrapped B should be the same", wrapped.get<Field::B>(), "b a");
+    cor::PrintableRecord<TestRecord> rec_wrap(wrapped);
 
     wrapped.get<Field::B>() = "c d";
     ensure_eq("wrapped B should be changed", wrapped.get<Field::B>(), "c d");
@@ -83,10 +88,13 @@ template<> template<>
 void object::test<tid_output>()
 {
     std::stringstream ss;
+    auto t1 = std::make_tuple(12, "E");
     ss << cor::name<TestRecord, Field::A>() << "/"
        << cor::name<TestRecord, Field::B>() << "/";
-    ss << cor::printable<TestRecord>(std::make_tuple(12, "E"));
+    ss << cor::printable<TestRecord>(t1);
     ensure_eq("output", ss.str(), "A/B/(A=12, B=E)");
+    ss << "{" << cor::printable(TestRecord::wrap(t1)) << "}";
+    ensure_eq("output", ss.str(), "A/B/(A=12, B=E){(A=12, B=E)}");
 }
 
 }
